@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "rag-ollama"
+version = "0.1.0"
+description = ""
+authors = ["Shivaji Byrapaneni <Shivaji.byrapaneni@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+chromadb = "^0.5.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
