@@ -1,1 +1,3 @@
 chromadb/data
+__pycache__
+stock_ticker_database.db
