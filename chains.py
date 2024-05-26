@@ -1,7 +1,5 @@
 import logging
 import sys
-import json
-import os
 import sys
 import re
 from functools import partial
@@ -62,6 +60,17 @@ def extract_from_xml_tag(response: str, tag: str) -> str:
         return ""
 
 
+"""
+    1) Uses Ollama llama3 model as LLM
+    2) Creates and SQLLite DB and seeds with some Stock tickers data
+    3) Create a Landachain DB connection to SQLLite
+    4) We use SQL Query Chain ( Prompt Variables are as per https://api.python.langchain.com/en/latest/chains/langchain.chains.sql_database.query.create_sql_query_chain.html)
+    5) We extract SQL from the LLM response 
+    6) Create QuerySQLDataBaseTool to execute SQL Query genearted by LLM using SQL Chain
+    7) Create a Chat Prompt, that takes a question, a SQL Query and SQL Query Result 
+    8) Construct answer chain with prompot --> llm --> get String output lang chain operation
+    9) Final Chain with Query writter first then Query executor next and then finally to answer writer
+"""
 if __name__ == "__main__":
     llm = Ollama(model="llama3")
 
@@ -87,8 +96,8 @@ if __name__ == "__main__":
 
     extract_sql = partial(extract_from_xml_tag, tag="sql")
 
-    query_writer_chain = query_writer_chain | RunnableLambda(
-        extract_sql)  # extract the SQL query from the response
+    # extract the SQL query from the response
+    query_writer_chain = query_writer_chain | RunnableLambda(extract_sql)
 
     execute_query = QuerySQLDataBaseTool(db=db)
     # let's test if the query works
@@ -118,8 +127,11 @@ if __name__ == "__main__":
         | answer_chain
     )
 
-    print(full_sql_chain.invoke(
+    logger.info(full_sql_chain.invoke(
         {"question": "What is the ticker symbol for Tesla in stock ticker table?"}))
 
-    print(full_sql_chain.invoke(
+    logger.info(full_sql_chain.invoke(
         {"question": "What is the name for ticker AMZN in table?"}))
+
+    logger.info(full_sql_chain.invoke(
+        {"question": "what is the ticker symbol for Ryan Air?"}))
