@@ -14,7 +14,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from operator import itemgetter
-
+from util import extract_from_xml_tag
 logger = logging.getLogger(__name__)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -32,7 +32,7 @@ def setup_and_seed_db():
         symbol text PRIMARY KEY,
         name text NOT NULL,
         currency text,
-        stockExchange text, 
+        stockExchange text,
         exchangeShortName text
     );"""
 
@@ -50,29 +50,20 @@ def setup_and_seed_db():
         print("Error! cannot create the database connection.")
 
 
-def extract_from_xml_tag(response: str, tag: str) -> str:
-    """Extract the text from the specified XML tag in the response string."""
-
-    tag_txt = re.search(rf'<{tag}>(.*?)</{tag}>', response, re.DOTALL)
-    if tag_txt:
-        return tag_txt.group(1)
-    else:
-        return ""
-
-
 """
     1) Uses Ollama llama3 model as LLM
     2) Creates and SQLLite DB and seeds with some Stock tickers data
     3) Create a Landachain DB connection to SQLLite
     4) We use SQL Query Chain ( Prompt Variables are as per https://api.python.langchain.com/en/latest/chains/langchain.chains.sql_database.query.create_sql_query_chain.html)
-    5) We extract SQL from the LLM response 
+    5) We extract SQL from the LLM response
     6) Create QuerySQLDataBaseTool to execute SQL Query genearted by LLM using SQL Chain
-    7) Create a Chat Prompt, that takes a question, a SQL Query and SQL Query Result 
+    7) Create a Chat Prompt, that takes a question, a SQL Query and SQL Query Result
     8) Construct answer chain with prompot --> llm --> get String output lang chain operation
     9) Final Chain with Query writter first then Query executor next and then finally to answer writer
 """
-if __name__ == "__main__":
-    llm = Ollama(model="llama3")
+
+
+def get_sql_chain(llm):
 
     setup_and_seed_db()
 
@@ -126,12 +117,19 @@ if __name__ == "__main__":
 
         | answer_chain
     )
+    return full_sql_chain
 
-    logger.info(full_sql_chain.invoke(
+
+if __name__ == "__main__":
+    llm = Ollama(model="llama3")
+
+    sql_chain = get_sql_chain(llm)
+
+    logger.info(sql_chain.invoke(
         {"question": "What is the ticker symbol for Tesla in stock ticker table?"}))
 
-    logger.info(full_sql_chain.invoke(
+    logger.info(sql_chain.invoke(
         {"question": "What is the name for ticker AMZN in table?"}))
 
-    logger.info(full_sql_chain.invoke(
+    logger.info(sql_chain.invoke(
         {"question": "what is the ticker symbol for Ryan Air?"}))
