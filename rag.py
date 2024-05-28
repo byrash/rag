@@ -2,11 +2,15 @@
 import logging
 import re
 import sys
+from pathlib import Path
 from langchain.vectorstores import Chroma
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.document_loaders import RecursiveUrlLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from bs4 import BeautifulSoup as Soup
+from langchain.document_loaders import PyPDFLoader
+from pdf_utils import PyPDFOutlineParser
+from langchain_community.llms import Ollama
 
 # Logger Setup
 logger = logging.getLogger(__name__)
@@ -69,6 +73,24 @@ def scrape_url(url):
     return docs[:5]
 
 
+def load_pdf():
+    docs_path = Path("./data")
+    doc_files = list(docs_path.glob("*.pdf"))
+
+    doc_files
+
+    section_chunks = []
+
+    for doc_path in doc_files:
+        loader = PyPDFLoader(file_path=doc_path.as_posix())
+        loader.parser = PyPDFOutlineParser()
+        sections = loader.load()
+        for sec in sections:
+            sec.metadata.update({"file": doc_path.name})
+
+        section_chunks += sections
+
+
 if __name__ == "__main__":
     documents = scrape_url("https://open5gs.org/open5gs/docs/")
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
@@ -78,4 +100,8 @@ if __name__ == "__main__":
 
     query_vector = embeddings.embed_query("Tell me about Kubernetes")
     docs = chrome_vectordb.similarity_search_by_vector(query_vector, k=3)
-    print(docs[0].page_content)
+    logger.info(docs[0].page_content)
+
+    llm = Ollama(model="llama3")
+
+    load_pdf()
