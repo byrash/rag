@@ -71,11 +71,11 @@ def scrape_url(url):
 
 if __name__ == "__main__":
     documents = scrape_url("https://open5gs.org/open5gs/docs/")
-    ollam3_embeddings = OllamaEmbeddings(model=OLLAMA_LLM3_MODEL)
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
     chrome_vectordb = Chroma.from_documents(
-        documents=documents, embedding=ollam3_embeddings, persist_directory="./chromadb/data")
+        documents=documents, embedding=embeddings, persist_directory="./chromadb/data")
     chrome_vectordb.persist()
 
-    query_vector = ollam3_embeddings.embed_query("Tell me about Kubernetes")
+    query_vector = embeddings.embed_query("Tell me about Kubernetes")
     docs = chrome_vectordb.similarity_search_by_vector(query_vector, k=3)
     print(docs[0].page_content)
