@@ -74,34 +74,25 @@ def scrape_url(url):
 
 
 def load_pdf():
-    docs_path = Path("./data")
-    doc_files = list(docs_path.glob("*.pdf"))
+    pdf_files = list(Path(".").glob("**/*.pdf"))
+    section_chunks_local = []
 
-    doc_files
-
-    section_chunks = []
-
-    for doc_path in doc_files:
-        loader = PyPDFLoader(file_path=doc_path.as_posix())
+    for pdf in pdf_files:
+        loader = PyPDFLoader(file_path=pdf.as_posix())
         loader.parser = PyPDFOutlineParser()
         sections = loader.load()
         for sec in sections:
-            sec.metadata.update({"file": doc_path.name})
+            sec.metadata.update({"file": pdf.name})
 
-        section_chunks += sections
+        section_chunks_local += sections
+    return section_chunks_local
 
 
 if __name__ == "__main__":
-    documents = scrape_url("https://open5gs.org/open5gs/docs/")
+    section_chunks = load_pdf()
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
     chrome_vectordb = Chroma.from_documents(
-        documents=documents, embedding=embeddings, persist_directory="./chromadb/data")
+        documents=section_chunks, embedding=embeddings, persist_directory="./chromadb/data")
     chrome_vectordb.persist()
 
-    query_vector = embeddings.embed_query("Tell me about Kubernetes")
-    docs = chrome_vectordb.similarity_search_by_vector(query_vector, k=3)
-    logger.info(docs[0].page_content)
-
     llm = Ollama(model="llama3")
-
-    load_pdf()
