@@ -10,6 +10,9 @@ from langchain.document_loaders import PyPDFLoader, TextLoader
 from langchain.storage import InMemoryStore
 from langchain.retrievers import ParentDocumentRetriever
 from langchain_community.llms import Ollama
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
 
 from langchain_chroma import Chroma
@@ -36,8 +39,8 @@ def load_files(folder_path):
         elif file.endswith('.pdf'):
             pdf_files.append(file)
 
-    logger.info('MD Files: %s', md_files)
-    logger.info('PDF Files: %s', pdf_files)
+    # logger.info('MD Files: %s', md_files)
+    # logger.info('PDF Files: %s', pdf_files)
 
     loaders = [TextLoader(os.path.join(folder_path, file))
                for file in md_files]
@@ -76,14 +79,41 @@ if __name__ == "__main__":
 
     parentdoc_retriever.add_documents(load_files('.'), ids=None)
 
+    QUESTION = "what is a pod in kubernetes"
+    # QUESTION = "What are some acceptable model evaluation techniques?"
     # This should return keys to documents
     # logger.info(list(mem_store.yield_keys()))
     # This should return chunks from Chroma Vector DB
-    logger.info(chrome_vectordb.similarity_search(
-        "what is a pod in kubernetes"))
+    # section_segments = chrome_vectordb.similarity_search(QUESTION, k=10)
+    # logger.info(section_segments)
     # This should get Main document
-    parentdoc_retriever.search_kwargs = {"k": 2}
-    logger.info(parentdoc_retriever.invoke(
-        "what is a pod in kubernetes"))
+    parentdoc_retriever.search_kwargs = {"k": 10}
+    # full_sections = parentdoc_retriever.get_relevant_documents(QUESTION)
+    # logger.info(full_sections)
+
+    # logger.info("Vector search returned %s segments while the parent retriever returned %s sections", len(
+    #     section_segments), len(full_sections))
 
     llm = Ollama(model="llama3")
+
+    LLM_PROMPT_TEMPLATE = """Answer the question based only on the following context. 
+        If the context does not provide sufficient information to answer the question, politely indicate that you are unable to assist. 
+        
+        {context}
+        
+        Question: {question}
+        """
+    prompt = ChatPromptTemplate.from_template(LLM_PROMPT_TEMPLATE)
+    output_parser = StrOutputParser()
+
+    # in the first step we retrieve the context and pass through the input question
+    setup_and_retrieval = RunnableParallel(
+        {"context": parentdoc_retriever, "question": RunnablePassthrough()}
+
+    )
+
+    # In the subsequent steps pass the context and question to the prompt, send the prompt to the llm and parse the output as a string
+    chain = setup_and_retrieval | prompt | llm | output_parser
+
+    response = chain.invoke(QUESTION)
+    logger.info(response)
